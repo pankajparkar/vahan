@@ -32,6 +32,9 @@ test.describe('Vahan Dashboard Data Extraction', () => {
     // Click main Refresh
     await vahanDashboard.clickMainRefresh();
 
+    // Open sidebar filter
+    await vahanDashboard.openSidebarFilter();
+
     // Select vehicle categories in sidebar
     await vahanDashboard.selectVehicleCategories(VEHICLE_CATEGORIES_TO_SELECT);
 
@@ -54,6 +57,12 @@ test.describe('Vahan Dashboard Data Extraction', () => {
 
     // Change X-Axis to Fuel
     await vahanDashboard.selectXAxis(X_AXIS_OPTIONS.FUEL);
+
+    // Click main Refresh
+    await vahanDashboard.clickMainRefresh();
+
+    // Open sidebar filter
+    await vahanDashboard.openSidebarFilter();
 
     // Select vehicle categories again
     await vahanDashboard.selectVehicleCategories(VEHICLE_CATEGORIES_TO_SELECT);

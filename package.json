@@ -13,11 +13,17 @@
     "test:madhya-pradesh": "npx playwright test --grep @madhya-pradesh",
     "report": "npx playwright show-report"
   },
-  "keywords": ["playwright", "automation", "vahan", "testing"],
+  "keywords": [
+    "playwright",
+    "automation",
+    "vahan",
+    "testing"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.58.1",
+    "@types/node": "^25.1.0",
     "typescript": "^5.9.3"
   }
 }

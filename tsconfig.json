@@ -7,8 +7,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "@pages/*": ["src/pages/*"],
@@ -17,6 +16,6 @@
       "@config/*": ["src/config/*"]
     }
   },
-  "include": ["src/**/*", "playwright.config.ts"],
+  "include": ["src/**/*", "*.ts"],
   "exclude": ["node_modules", "dist"]
 }

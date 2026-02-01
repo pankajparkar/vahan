@@ -48,7 +48,7 @@ export function cleanupDownloads(): void {
   if (fs.existsSync(downloadDir)) {
     const files = fs.readdirSync(downloadDir);
 
-    files.forEach(file => {
+    files.forEach((file: string) => {
       const filePath = path.join(downloadDir, file);
       fs.unlinkSync(filePath);
     });

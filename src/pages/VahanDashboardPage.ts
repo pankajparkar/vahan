@@ -1,4 +1,4 @@
-import { Page, Locator, Download, expect } from '@playwright/test';
+import { Page, Download } from '@playwright/test';
 import path from 'path';
 import {
   VAHAN_CONFIG,
@@ -14,28 +14,8 @@ import { getDownloadPath, generateFileName } from '../utils/file-utils';
 export class VahanDashboardPage {
   readonly page: Page;
 
-  // Dropdown locators
-  readonly stateDropdown: Locator;
-  readonly yAxisDropdown: Locator;
-  readonly xAxisDropdown: Locator;
-
-  // Button locators
-  readonly mainRefreshButton: Locator;
-  readonly sidebarRefreshButton: Locator;
-  readonly excelDownloadButton: Locator;
-
   constructor(page: Page) {
     this.page = page;
-
-    // Initialize dropdown locators
-    this.stateDropdown = page.locator('#selectedState_label, #stateId_label, label:has-text("State") + div .ui-dropdown-label').first();
-    this.yAxisDropdown = page.locator('#yaxisVar_label, #yaxisVarId_label, label:has-text("Y-Axis") + div .ui-dropdown-label').first();
-    this.xAxisDropdown = page.locator('#xaxisVar_label, #xaxisVarId_label, label:has-text("X-Axis") + div .ui-dropdown-label').first();
-
-    // Initialize button locators
-    this.mainRefreshButton = page.locator('button:has-text("Refresh")').first();
-    this.sidebarRefreshButton = page.locator('#filterVhPanel button:has-text("Refresh"), .sidebar button:has-text("Refresh")').first();
-    this.excelDownloadButton = page.locator('a:has-text("Excel"), button:has-text("Excel"), .excel-btn, [title*="Excel"]').first();
   }
 
   async navigate(): Promise<void> {
@@ -47,16 +27,24 @@ export class VahanDashboardPage {
     await delay(3000); // Allow dynamic content to load
   }
 
-  async selectFromDropdown(
-    dropdownLocator: Locator,
+  async selectFromDropdownByLabel(
+    labelText: string,
     optionText: string
   ): Promise<void> {
+    // Find the inner label with ui-outputlabel class (e.g., "State:", "Y-Axis:", "X-Axis:")
+    const label = this.page.locator(`label.ui-outputlabel:has-text("${labelText}")`);
+    await label.waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT_VISIBLE });
+
+    // Navigate up to the container div (ui-grid-col-*) and find the dropdown
+    const container = label.locator('..').locator('..');
+    const dropdown = container.locator('.ui-selectonemenu').first();
+
     // Click to open dropdown
-    await dropdownLocator.click();
+    await dropdown.click();
     await delay(500);
 
-    // Wait for dropdown panel to appear and select option
-    const dropdownPanel = this.page.locator('.ui-dropdown-panel:visible, .ui-selectonemenu-panel:visible');
+    // Wait for dropdown panel to appear
+    const dropdownPanel = this.page.locator('.ui-selectonemenu-panel:visible');
     await dropdownPanel.waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT_VISIBLE });
 
     // Find and click the option
@@ -69,66 +57,80 @@ export class VahanDashboardPage {
 
   async selectState(state: StateName): Promise<void> {
     console.log(`Selecting state: ${state}`);
-    await this.selectFromDropdown(this.stateDropdown, state);
+    await this.selectFromDropdownByLabel('State:', state);
   }
 
   async selectYAxis(option: YAxisOption): Promise<void> {
     console.log(`Selecting Y-Axis: ${option}`);
-    await this.selectFromDropdown(this.yAxisDropdown, option);
+    await this.selectFromSelectById('yaxisVar_input', option);
   }
 
   async selectXAxis(option: XAxisOption): Promise<void> {
     console.log(`Selecting X-Axis: ${option}`);
-    await this.selectFromDropdown(this.xAxisDropdown, option);
+    await this.selectFromSelectById('xaxisVar_input', option);
+  }
+
+  async selectFromSelectById(selectId: string, optionText: string): Promise<void> {
+    // Find the parent ui-selectonemenu container of the select element
+    const select = this.page.locator(`#${selectId}`);
+    const dropdown = select.locator('..').locator('..'); // Navigate up to .ui-selectonemenu
+
+    // Click to open dropdown
+    await dropdown.click();
+    await delay(500);
+
+    // Wait for dropdown panel to appear
+    const dropdownPanel = this.page.locator('.ui-selectonemenu-panel:visible');
+    await dropdownPanel.waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT_VISIBLE });
+
+    // Find and click the option
+    const option = dropdownPanel.locator('li').filter({ hasText: optionText });
+    await option.first().click();
+
+    await delay(1000);
+    await waitForLoaderToDisappear(this.page);
   }
 
   async clickMainRefresh(): Promise<void> {
     console.log('Clicking main Refresh button');
 
-    // Try multiple selectors for the refresh button
-    const refreshSelectors = [
-      'button:has-text("Refresh")',
-      '#j_idt77',
-      'button.ui-button:has-text("Refresh")',
-      '.ui-button-text:has-text("Refresh")'
-    ];
-
-    for (const selector of refreshSelectors) {
-      const button = this.page.locator(selector).first();
-      const isVisible = await button.isVisible().catch(() => false);
-
-      if (isVisible) {
-        await button.click();
-        break;
-      }
-    }
+    // Find Refresh button inside .button-section div with span containing "Refresh"
+    const refreshButton = this.page.locator('.button-section span:has-text("Refresh")').first();
+    await refreshButton.click();
 
     await delay(TIMEOUTS.REFRESH_DELAY);
     await waitForLoaderToDisappear(this.page);
   }
 
+  async openSidebarFilter(): Promise<void> {
+    console.log('Opening sidebar filter');
+
+    const sidebarToggler = this.page.locator('#filterLayout-toggler');
+    await sidebarToggler.click();
+
+    await delay(1000);
+  }
+
   async selectVehicleCategories(categories: readonly string[]): Promise<void> {
     console.log(`Selecting vehicle categories: ${categories.join(', ')}`);
 
+    // Find the VhCatg table
+    const table = this.page.locator('#VhCatg');
+    await table.waitFor({ state: 'visible', timeout: TIMEOUTS.ELEMENT_VISIBLE });
+
     for (const category of categories) {
-      // Find checkbox row with the category text
-      const row = this.page.locator('tr, .ui-datatable-row, .checkbox-row')
-        .filter({ hasText: category });
+      // Find the label with the category text inside the table
+      const label = table.locator(`label:has-text("${category}")`);
 
-      const checkbox = row.locator('input[type="checkbox"], .ui-chkbox-box').first();
+      // Find the checkbox associated with this label (sibling or parent's checkbox)
+      const row = label.locator('..');
+      const checkbox = row.locator('.ui-chkbox-box').first();
 
-      const isChecked = await checkbox.isChecked().catch(async () => {
-        // For PrimeFaces checkboxes
-        const chkbox = row.locator('.ui-chkbox-box');
-        const ariaChecked = await chkbox.getAttribute('aria-checked');
-        return ariaChecked === 'true';
-      });
+      // Check if already selected
+      const isChecked = await checkbox.getAttribute('aria-checked') === 'true';
 
       if (!isChecked) {
-        await checkbox.click().catch(async () => {
-          // Try clicking the PrimeFaces checkbox wrapper
-          await row.locator('.ui-chkbox').first().click();
-        });
+        await checkbox.click();
         await delay(500);
       }
     }
@@ -137,31 +139,9 @@ export class VahanDashboardPage {
   async clickSidebarRefresh(): Promise<void> {
     console.log('Clicking sidebar Refresh button');
 
-    // The sidebar refresh might be a different button
-    const sidebarRefreshSelectors = [
-      '#filterVhPanel button:has-text("Refresh")',
-      '.filter-panel button:has-text("Refresh")',
-      'button:has-text("Refresh"):nth-child(2)',
-      '#vhandedContent button:has-text("Refresh")'
-    ];
-
-    for (const selector of sidebarRefreshSelectors) {
-      const button = this.page.locator(selector).first();
-      const isVisible = await button.isVisible().catch(() => false);
-
-      if (isVisible) {
-        await button.click();
-        break;
-      }
-    }
-
-    // Fallback: click the second refresh button if multiple exist
-    const allRefreshButtons = this.page.locator('button:has-text("Refresh")');
-    const count = await allRefreshButtons.count();
-
-    if (count > 1) {
-      await allRefreshButtons.nth(1).click();
-    }
+    // Find Refresh button inside #filterLayout div with span containing "Refresh"
+    const sidebarRefreshButton = this.page.locator('#filterLayout span:has-text("Refresh")').first();
+    await sidebarRefreshButton.click();
 
     await delay(TIMEOUTS.REFRESH_DELAY);
     await waitForLoaderToDisappear(this.page);
@@ -179,36 +159,9 @@ export class VahanDashboardPage {
       timeout: TIMEOUTS.DOWNLOAD
     });
 
-    // Find and click download button
-    const downloadSelectors = [
-      'a:has-text("Excel")',
-      'button:has-text("Excel")',
-      '[title*="Excel"]',
-      '.excel-download',
-      'a[href*="excel"]',
-      'img[alt*="excel"]',
-      '.ui-commandlink:has-text("Excel")'
-    ];
-
-    let clicked = false;
-    for (const selector of downloadSelectors) {
-      const button = this.page.locator(selector).first();
-      const isVisible = await button.isVisible().catch(() => false);
-
-      if (isVisible) {
-        await button.click();
-        clicked = true;
-        break;
-      }
-    }
-
-    if (!clicked) {
-      // Try finding by image or icon
-      const excelIcon = this.page.locator('img[src*="excel"], [class*="excel"]').first();
-      if (await excelIcon.isVisible()) {
-        await excelIcon.click();
-      }
-    }
+    // Click the Excel download button
+    const excelButton = this.page.locator('#groupingTable\\:xls');
+    await excelButton.click();
 
     // Wait for download to complete
     const download: Download = await downloadPromise;
@@ -227,6 +180,9 @@ export class VahanDashboardPage {
 
     // Click main refresh
     await this.clickMainRefresh();
+
+    // Open sidebar filter
+    await this.openSidebarFilter();
 
     // Select vehicle categories in sidebar
     await this.selectVehicleCategories(VEHICLE_CATEGORIES_TO_SELECT);
