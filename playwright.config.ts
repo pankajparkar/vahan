@@ -39,6 +39,12 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         launchOptions: {
           slowMo: 500, // Slow down for stability with government sites
+          // Use proxy if HTTPS_PROXY env var is set (for CI)
+          ...(process.env.HTTPS_PROXY && {
+            proxy: {
+              server: process.env.HTTPS_PROXY,
+            }
+          })
         }
       },
     },
