@@ -1,0 +1,23 @@
+{
+  "name": "vahan-automation",
+  "version": "1.0.0",
+  "description": "Playwright automation for Vahan Dashboard data extraction",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:ui": "npx playwright test --ui",
+    "test:goa": "npx playwright test --grep @goa",
+    "test:gujarat": "npx playwright test --grep @gujarat",
+    "test:maharashtra": "npx playwright test --grep @maharashtra",
+    "test:madhya-pradesh": "npx playwright test --grep @madhya-pradesh",
+    "report": "npx playwright show-report"
+  },
+  "keywords": ["playwright", "automation", "vahan", "testing"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "typescript": "^5.9.3"
+  }
+}
