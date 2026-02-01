@@ -1,0 +1,136 @@
+name: Vahan Data Extraction
+
+on:
+  # Run manually from GitHub UI
+  workflow_dispatch:
+    inputs:
+      states:
+        description: 'States to extract (comma-separated: goa,gujarat,maharashtra,madhya-pradesh or "all")'
+        required: false
+        default: 'all'
+      send_email:
+        description: 'Send email with results'
+        required: false
+        default: 'true'
+        type: boolean
+
+  # Run on schedule (e.g., every Monday at 9 AM IST / 3:30 AM UTC)
+  schedule:
+    - cron: '30 3 * * 1'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  extract-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Create downloads directory
+        run: mkdir -p downloads
+
+      - name: Run Playwright tests - All States
+        if: ${{ github.event.inputs.states == 'all' || github.event.inputs.states == '' }}
+        run: npm test
+        env:
+          CI: true
+
+      - name: Run Playwright tests - Specific States
+        if: ${{ github.event.inputs.states != 'all' && github.event.inputs.states != '' }}
+        run: |
+          IFS=',' read -ra STATES <<< "${{ github.event.inputs.states }}"
+          for state in "${STATES[@]}"; do
+            state=$(echo "$state" | xargs) # trim whitespace
+            echo "Running tests for: $state"
+            npx playwright test --grep "@${state}" || true
+          done
+        env:
+          CI: true
+
+      - name: List downloaded files
+        run: |
+          echo "Downloaded files:"
+          ls -la downloads/ || echo "No files downloaded"
+
+      - name: Upload Excel files as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vahan-excel-reports-${{ github.run_number }}
+          path: downloads/*.xlsx
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Zip Excel files for email
+        if: ${{ github.event.inputs.send_email == 'true' || github.event_name == 'schedule' }}
+        run: |
+          cd downloads
+          if ls *.xlsx 1> /dev/null 2>&1; then
+            zip -r ../vahan-reports-$(date +%Y%m%d).zip *.xlsx
+            echo "ZIP_CREATED=true" >> $GITHUB_ENV
+          else
+            echo "No Excel files to zip"
+            echo "ZIP_CREATED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Send email with reports
+        if: ${{ (github.event.inputs.send_email == 'true' || github.event_name == 'schedule') && env.ZIP_CREATED == 'true' }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Vahan Dashboard Data - ${{ github.run_number }}"
+          to: ${{ secrets.EMAIL_RECIPIENT }}
+          from: ${{ secrets.EMAIL_FROM }}
+          body: |
+            Vahan Dashboard Data Extraction Report
+            ======================================
+
+            Run Number: ${{ github.run_number }}
+            Date: ${{ github.event.repository.updated_at }}
+            Trigger: ${{ github.event_name }}
+
+            States Processed: ${{ github.event.inputs.states || 'all' }}
+
+            The attached ZIP file contains Excel reports for:
+            - Month Wise data
+            - Fuel Wise data
+
+            Vehicle Categories: LIGHT MOTOR VEHICLE, LIGHT PASSENGER VEHICLE
+
+            View full report: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          attachments: vahan-reports-*.zip
+
+      - name: Summary
+        run: |
+          echo "## Vahan Data Extraction Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Downloaded Files" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          ls -la downloads/ 2>/dev/null || echo "No files"
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
