@@ -105,10 +105,19 @@ export class VahanDashboardPage {
   async openSidebarFilter(): Promise<void> {
     console.log('Opening sidebar filter');
 
-    const sidebarToggler = this.page.locator('#filterLayout-toggler');
-    await sidebarToggler.click();
+    // Check if sidebar is already visible
+    const sidebar = this.page.locator('#filterLayout');
+    const isVisible = await sidebar.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return style.visibility !== 'hidden' && style.display !== 'none';
+    }).catch(() => false);
 
-    await delay(1000);
+    // Only click toggler if sidebar is not visible
+    if (!isVisible) {
+      const sidebarToggler = this.page.locator('#filterLayout-toggler');
+      await sidebarToggler.click();
+      await delay(1000);
+    }
   }
 
   async selectVehicleCategories(categories: readonly string[]): Promise<void> {
