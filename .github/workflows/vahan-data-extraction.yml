@@ -85,47 +85,13 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-      - name: Zip Excel files for email
-        if: ${{ github.event.inputs.send_email == 'true' || github.event_name == 'schedule' }}
-        run: |
-          cd downloads
-          if ls *.xlsx 1> /dev/null 2>&1; then
-            zip -r ../vahan-reports-$(date +%Y%m%d).zip *.xlsx
-            echo "ZIP_CREATED=true" >> $GITHUB_ENV
-          else
-            echo "No Excel files to zip"
-            echo "ZIP_CREATED=false" >> $GITHUB_ENV
-          fi
-
       - name: Send email with reports
-        if: ${{ (github.event.inputs.send_email == 'true' || github.event_name == 'schedule') && env.ZIP_CREATED == 'true' }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "Vahan Dashboard Data - ${{ github.run_number }}"
-          to: ${{ secrets.EMAIL_RECIPIENT }}
-          from: ${{ secrets.EMAIL_FROM }}
-          body: |
-            Vahan Dashboard Data Extraction Report
-            ======================================
-
-            Run Number: ${{ github.run_number }}
-            Date: ${{ github.event.repository.updated_at }}
-            Trigger: ${{ github.event_name }}
-
-            States Processed: ${{ github.event.inputs.states || 'all' }}
-
-            The attached ZIP file contains Excel reports for:
-            - Month Wise data
-            - Fuel Wise data
-
-            Vehicle Categories: LIGHT MOTOR VEHICLE, LIGHT PASSENGER VEHICLE
-
-            View full report: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          attachments: vahan-reports-*.zip
+        if: ${{ github.event.inputs.send_email == 'true' || github.event_name == 'schedule' }}
+        run: npx tsx scripts/send-email.ts
+        env:
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
 
       - name: Summary
         run: |

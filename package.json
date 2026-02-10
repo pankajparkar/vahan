@@ -11,7 +11,9 @@
     "test:gujarat": "npx playwright test --grep @gujarat",
     "test:maharashtra": "npx playwright test --grep @maharashtra",
     "test:madhya-pradesh": "npx playwright test --grep @madhya-pradesh",
-    "report": "npx playwright show-report"
+    "report": "npx playwright show-report",
+    "send-email": "npx tsx scripts/send-email.ts",
+    "test:run-and-email": "npx playwright test --headed && npx tsx scripts/send-email.ts"
   },
   "keywords": [
     "playwright",
@@ -24,6 +26,11 @@
   "devDependencies": {
     "@playwright/test": "^1.58.1",
     "@types/node": "^25.1.0",
+    "@types/nodemailer": "^7.0.9",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.13"
   }
 }
